@@ -35,7 +35,8 @@ unified-reference-stack/
 ## Dependency management
 
 [Pixi](https://pixi.sh) manages all language runtimes and shared tooling via a single
-`pixi.toml` at the root. Each app also carries its own `pixi.toml` for isolated resolution.
+root `pixi.toml`. Per-language features (`feature.py`, `feature.node`, `feature.rust`) compose
+into named environments, keeping resolution isolated without requiring per-app manifests.
 
 | Layer             | Mechanism                                                  |
 |-------------------|------------------------------------------------------------|

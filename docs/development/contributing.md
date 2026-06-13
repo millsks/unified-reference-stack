@@ -4,7 +4,7 @@
 
 This repo uses [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <short summary>
 ```
 
@@ -20,7 +20,8 @@ This repo uses [Conventional Commits](https://www.conventionalcommits.org/):
 Scope should be the app or component: `py-service`, `node-api`, `rust-cli`, `infra`, `ci`.
 
 Examples:
-```
+
+```text
 feat(py-service): add /metrics endpoint
 fix(node-api): handle missing PORT env var
 chore(infra): bump postgres to 16.3
@@ -35,9 +36,9 @@ chore(infra): bump postgres to 16.3
 
 ## Adding a new app
 
-1. Create `apps/<name>/` with its own `pixi.toml`, `Dockerfile`, and `README.md`
-2. Add a feature block to the root `pixi.toml` (see existing `feature.py`, `feature.node`)
-3. Add workspace-level tasks to the root `pixi.toml` `[tasks]` section
+1. Create `apps/<name>/` with a `Dockerfile` and `README.md` (no per-app `pixi.toml` needed)
+2. Add a `[feature.<name>.*]` block to the root `pixi.toml` with deps and tasks
+3. Add a named environment in the root `[environments]` section
 4. Add a build target to `infra/docker-bake.hcl`
 5. Add a service entry to `infra/docker-compose.yml`
 6. Add a CI job to `.github/workflows/ci.yml`

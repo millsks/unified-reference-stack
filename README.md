@@ -55,7 +55,7 @@ unified CI/CD pipelines much easier to manage.
 the Conda ecosystem. It is an ideal fit for a polyglot monorepo because:
 
 - **Multi-language**: Manages Python (conda + PyPI), Node.js, Rust, and system-level packages in one tool.
-- **Declarative `pixi.toml`**: A single manifest per app defines dependencies, tasks, and environments.
+- **Declarative `pixi.toml`**: A single root manifest defines all dependencies, tasks, and environments.
 - **Reproducible lock files**: `pixi.lock` pins every dependency across all platforms.
 - **Built-in task runner**: Replace `Makefile`, `npm run`, and shell scripts with `pixi run <task>`.
 - **Multiple environments**: Define `dev`, `test`, `prod`, and `lint` environments in one file.
@@ -143,20 +143,17 @@ unified-reference-stack/
 |   |   +-- src/
 |   |   +-- tests/
 |   |   +-- Dockerfile
-|   |   +-- pixi.toml
 |   |   +-- README.md
 |   |
 |   +-- node-api/            # Node.js Express API
 |   |   +-- src/
 |   |   +-- Dockerfile
-|   |   +-- pixi.toml
 |   |   +-- package.json
 |   |   +-- README.md
 |   |
 |   +-- rust-cli/            # Rust CLI tool
 |   |   +-- src/
 |   |   +-- Dockerfile
-|   |   +-- pixi.toml
 |   |   +-- Cargo.toml
 |   |   +-- README.md
 |   |
@@ -166,7 +163,6 @@ unified-reference-stack/
 |       +-- Dockerfile.backend
 |       +-- Dockerfile.frontend
 |       +-- docker-compose.yml
-|       +-- pixi.toml
 |       +-- README.md
 |
 +-- scripts/                 # Shared shell utilities
@@ -287,9 +283,9 @@ build-all    = { cmd = "docker buildx bake -f docker-bake.hcl", cwd = "infra" }
 build-py   = { cmd = "docker build -t unified/py-service:dev .", cwd = "apps/py-service" }
 build-node = { cmd = "docker build -t unified/node-api:dev .",   cwd = "apps/node-api"   }
 build-rust = { cmd = "docker build -t unified/rust-cli:dev .",   cwd = "apps/rust-cli"   }
-test-py   = { cmd = "pixi run -e test test", cwd = "apps/py-service" }
-test-node = { cmd = "pixi run test",         cwd = "apps/node-api"   }
-test-rust = { cmd = "pixi run test",         cwd = "apps/rust-cli"   }
+test-py   = "pixi run -e py-dev py-test"
+test-node = "pixi run -e node node-test"
+test-rust = "pixi run -e rust rust-test"
 test-all  = { depends-on = ["test-py", "test-node", "test-rust"] }
 ci = { depends-on = ["lint-all", "test-all"] }
 
@@ -449,49 +445,7 @@ apps/py-service/
 +-- tests/
 |   +-- test_main.py
 +-- Dockerfile
-+-- pixi.toml
 +-- README.md
-```
-
-### `apps/py-service/pixi.toml`
-
-```toml
-[workspace]
-name = "py-service"
-version = "0.1.0"
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64"]
-
-[dependencies]
-python = ">=3.12"
-
-[pypi-dependencies]
-fastapi = ">=0.111"
-uvicorn = { version = ">=0.29", extras = ["standard"] }
-pydantic = ">=2.7"
-
-[tasks]
-start   = "uvicorn py_service.main:app --host 0.0.0.0 --port 8000"
-dev     = "uvicorn py_service.main:app --reload --port 8000"
-test    = "pytest tests/ -v"
-lint    = "ruff check src/ tests/"
-format  = "ruff format src/ tests/"
-# Docker tasks
-build   = "docker build -t unified/py-service:dev ."
-run-container = "docker run --rm -p 8000:8000 unified/py-service:dev"
-
-[feature.test.dependencies]
-pytest = ">=8.0"
-pytest-asyncio = ">=0.23"
-httpx = ">=0.27"
-
-[feature.lint.dependencies]
-ruff = ">=0.4"
-
-[environments]
-default = { features = [], solve-group = "default" }
-test    = { features = ["test"], solve-group = "default" }
-lint    = { features = ["lint"], solve-group = "default" }
 ```
 
 ### `apps/py-service/Dockerfile`
@@ -556,40 +510,8 @@ apps/node-api/
 |   +-- index.js
 |   +-- routes/
 +-- Dockerfile
-+-- pixi.toml
 +-- package.json
 +-- README.md
-```
-
-### `apps/node-api/pixi.toml`
-
-```toml
-[workspace]
-name = "node-api"
-version = "0.1.0"
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64"]
-
-[dependencies]
-nodejs = ">=20"
-npm    = ">=10"
-
-[tasks]
-install = "npm ci"
-start   = { cmd = "node src/index.js", depends-on = ["install"] }
-dev     = { cmd = "npx nodemon src/index.js", depends-on = ["install"] }
-test    = { cmd = "npm test", depends-on = ["install"] }
-lint    = { cmd = "npx eslint src/", depends-on = ["install"] }
-# Docker tasks
-build   = "docker build -t unified/node-api:dev ."
-run-container = "docker run --rm -p 3000:3000 unified/node-api:dev"
-
-[feature.dev.dependencies]
-nodejs = ">=20"
-
-[environments]
-default = { features = [], solve-group = "default" }
-dev     = { features = ["dev"], solve-group = "default" }
 ```
 
 ### `apps/node-api/Dockerfile`
@@ -649,44 +571,8 @@ apps/rust-cli/
 +-- src/
 |   +-- main.rs
 +-- Dockerfile
-+-- pixi.toml
 +-- Cargo.toml
 +-- README.md
-```
-
-### `apps/rust-cli/pixi.toml`
-
-```toml
-[workspace]
-name = "rust-cli"
-version = "0.1.0"
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64"]
-
-[dependencies]
-rust = ">=1.78"
-
-[tasks]
-build   = "cargo build --release"
-run     = "cargo run"
-test    = "cargo test"
-lint    = "cargo clippy -- -D warnings"
-format  = "cargo fmt"
-clean   = "cargo clean"
-# Docker tasks
-docker-build = "docker build -t unified/rust-cli:dev ."
-docker-run   = "docker run --rm unified/rust-cli:dev"
-
-[feature.dev.dependencies]
-rust = ">=1.78"
-cargo-watch = "*"
-
-[feature.dev.tasks]
-watch = "cargo-watch -x run"
-
-[environments]
-default = { features = [], solve-group = "default" }
-dev     = { features = ["dev"], solve-group = "default" }
 ```
 
 ### `apps/rust-cli/Dockerfile`
@@ -747,15 +633,10 @@ set -euo pipefail
 echo "==> unified-reference-stack bootstrap"
 
 # Install pre-commit hooks
-pixi run pre-commit install
+pixi run pre-commit-install
 
-# Install app-level dependencies
-for app in apps/*/; do
-  if [ -f "$app/pixi.toml" ]; then
-    echo "==> Installing: $app"
-    (cd "$app" && pixi install)
-  fi
-done
+# Install all environments defined in the root pixi.toml
+pixi install --all
 
 echo "==> Bootstrap complete."
 ```
@@ -791,13 +672,13 @@ echo "==> Linting shell scripts..."
 shellcheck scripts/*.sh
 
 echo "==> Linting Python..."
-(cd apps/py-service && pixi run -e lint lint)
+pixi run -e py-dev py-lint
 
 echo "==> Linting Node.js..."
-(cd apps/node-api && pixi run lint)
+pixi run -e node node-lint
 
 echo "==> Linting Rust..."
-(cd apps/rust-cli && pixi run lint)
+pixi run -e rust rust-lint
 
 echo "==> All linters passed."
 ```
@@ -812,50 +693,13 @@ echo "==> All linters passed."
 apps/hybrid-app/
 +-- backend/
 |   +-- src/
-|   +-- pixi.toml        # Python deps
 +-- frontend/
 |   +-- src/
 |   +-- package.json
 +-- Dockerfile.backend
 +-- Dockerfile.frontend
 +-- docker-compose.yml   # App-level Compose
-+-- pixi.toml            # Orchestrates both stacks
 +-- README.md
-```
-
-### `apps/hybrid-app/pixi.toml`
-
-```toml
-[workspace]
-name = "hybrid-app"
-version = "0.1.0"
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64"]
-
-[dependencies]
-python = ">=3.12"
-nodejs = ">=20"
-npm    = ">=10"
-
-[pypi-dependencies]
-fastapi  = ">=0.111"
-uvicorn  = { version = ">=0.29", extras = ["standard"] }
-
-[tasks]
-# Backend
-backend-dev  = { cmd = "uvicorn backend.main:app --reload --port 8000", cwd = "backend" }
-backend-test = { cmd = "pytest tests/ -v", cwd = "backend" }
-
-# Frontend
-frontend-install = { cmd = "npm ci", cwd = "frontend" }
-frontend-dev     = { cmd = "npm run dev", cwd = "frontend", depends-on = ["frontend-install"] }
-frontend-build   = { cmd = "npm run build", cwd = "frontend", depends-on = ["frontend-install"] }
-
-# Docker Compose
-up    = "docker compose up -d"
-down  = "docker compose down"
-logs  = "docker compose logs -f"
-build = "docker compose build"
 ```
 
 ### `apps/hybrid-app/Dockerfile.backend`
@@ -863,9 +707,9 @@ build = "docker compose build"
 ```dockerfile
 FROM ghcr.io/prefix-dev/pixi:latest AS builder
 WORKDIR /app
-COPY backend/pixi.toml backend/pixi.lock ./
-RUN pixi install --frozen -e default
-COPY backend/src ./src
+COPY pixi.toml pixi.lock ./
+RUN pixi install --frozen -e hybrid
+COPY backend/ ./backend/
 
 FROM python:3.12-slim AS runtime
 WORKDIR /app
@@ -1249,8 +1093,8 @@ pixi run test
 # Specific environment
 pixi run -e ci test
 
-# From repo root, targeting a specific app
-(cd apps/py-service && pixi run -e test coverage)
+# From repo root, targeting a specific app environment
+pixi run -e py-dev py-coverage
 
 # Root-level Docker tasks
 pixi run docker-up
@@ -1355,45 +1199,36 @@ jobs:
 
   test-python:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/py-service
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/py-service/pixi.toml
-      - run: pixi run -e test test
+          environments: py-dev
+      - run: pixi run -e py-dev py-test
 
   test-node:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/node-api
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/node-api/pixi.toml
-      - run: pixi run test
+          environments: node
+      - run: pixi run -e node node-test
 
   test-rust:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/rust-cli
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/rust-cli/pixi.toml
-      - run: pixi run test
+          environments: rust
+      - run: pixi run -e rust rust-test
 
   docker-build:
     runs-on: ubuntu-latest
@@ -1474,8 +1309,8 @@ jobs:
 
 | Practice                        | Recommendation                                              |
 |---------------------------------|-------------------------------------------------------------|
-| One `pixi.toml` per app         | Keeps dependency graphs isolated                            |
-| Root `pixi.toml` for tooling    | Shared linters, Docker CLI, pre-commit                      |
+| Single root `pixi.toml`         | One manifest; per-language features keep graphs isolated    |
+| Root tasks target named envs    | `pixi run -e py-dev py-test` keeps CI consistent with local |
 | Path filters in CI              | Only run jobs for changed apps (use `dorny/paths-filter`)   |
 | Conventional commits            | `feat(py-service):`, `fix(node-api):`, `chore(infra):`      |
 | Shared scripts in `/scripts`    | Avoid duplicating bootstrap/lint logic across apps          |

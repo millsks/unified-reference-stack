@@ -5,12 +5,12 @@ echo "==> Linting shell scripts..."
 shellcheck scripts/*.sh
 
 echo "==> Linting Python..."
-(cd apps/py-service && pixi run -e lint lint)
+pixi run -e py-dev py-lint
 
 echo "==> Linting Node.js..."
-(cd apps/node-api && pixi run lint)
+pixi run -e node node-lint
 
 echo "==> Linting Rust..."
-(cd apps/rust-cli && pixi run lint)
+pixi run -e rust rust-lint
 
 echo "==> All linters passed."

@@ -22,45 +22,36 @@ jobs:
 
   test-python:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/py-service
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/py-service/pixi.toml
-      - run: pixi run -e test test
+          environments: py-dev
+      - run: pixi run -e py-dev py-test
 
   test-node:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/node-api
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/node-api/pixi.toml
-      - run: pixi run test
+          environments: node
+      - run: pixi run -e node node-test
 
   test-rust:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/rust-cli
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           pixi-version: latest
           cache: true
-          manifest-path: apps/rust-cli/pixi.toml
-      - run: pixi run test
+          environments: rust
+      - run: pixi run -e rust rust-test
 
   docker-build:
     runs-on: ubuntu-latest

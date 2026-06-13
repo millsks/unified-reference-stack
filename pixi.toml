@@ -52,10 +52,10 @@ build-py   = { cmd = "docker build -t unified/py-service:dev .", cwd = "apps/py-
 build-node = { cmd = "docker build -t unified/node-api:dev .",   cwd = "apps/node-api"   }
 build-rust = { cmd = "docker build -t unified/rust-cli:dev .",   cwd = "apps/rust-cli"   }
 
-# Per-app tests — delegates to each app's own pixi.toml
-test-py   = { cmd = "pixi run -e test test", cwd = "apps/py-service" }
-test-node = { cmd = "pixi run test",         cwd = "apps/node-api"   }
-test-rust = { cmd = "pixi run test",         cwd = "apps/rust-cli"   }
+# Per-app tests — each spawns a child pixi process in the appropriate root environment
+test-py   = "pixi run -e py-dev py-test"
+test-node = "pixi run -e node node-test"
+test-rust = "pixi run -e rust rust-test"
 test-all  = { depends-on = ["test-py", "test-node", "test-rust"] }
 
 # Full CI gate (lint then test)
