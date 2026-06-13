@@ -1,0 +1,56 @@
+# .pixi/config.toml — project-level Pixi configuration
+# Overrides the global ~/.config/pixi/config.toml for this workspace only.
+# Reference: https://pixi.sh/latest/reference/pixi_configuration/
+#
+# NOTE: top-level scalar keys must appear before any [section] headers in TOML.
+
+# ── Version pinning strategy ──────────────────────────────────
+# Controls the constraint written to pixi.toml when you run `pixi add`.
+#   no-pin          — no constraint at all (e.g. "numpy")
+#   major           — pin major only       (e.g. "numpy >=1")
+#   minor           — pin major+minor      (e.g. "numpy >=1.26")
+#   semver          — compatible release   (e.g. "numpy >=1.26,<2")  ← default
+#   exact-version   — lock to exact ver    (e.g. "numpy ==1.26.4")
+#   latest-up       — open upper bound     (e.g. "numpy >=1.26")
+pinning-strategy = "semver"
+
+# ── TLS ───────────────────────────────────────────────────────
+# Set to true only in air-gapped environments with self-signed certs.
+tls-no-verify = false
+
+# ── Authentication ────────────────────────────────────────────
+# Path to an external file holding channel/registry credentials.
+# Keeps secrets out of this file (which may be committed).
+# authentication-override-file = "~/.config/pixi/auth.toml"
+
+# ─────────────────────────────────────────────────────────────
+# Sections (must follow top-level scalars)
+# ─────────────────────────────────────────────────────────────
+
+# ── Shell prompt ──────────────────────────────────────────────
+# Prepend the active environment name to the shell prompt.
+# e.g.  (pixi:py-dev) $
+[shell]
+change-ps1 = true
+
+# ── Repodata fetch settings ───────────────────────────────────
+# Tune how conda-forge repodata is fetched.
+# These settings are channel-level; uncomment to override defaults.
+# [repodata-config."https://conda.anaconda.org/conda-forge"]
+# no-zstd      = false   # prefer zstd-compressed repodata
+# no-bz2       = false   # allow bz2 fallback
+# jlap-enabled = true    # incremental repodata updates (delta compression)
+
+# ── PyPI / uv configuration ───────────────────────────────────
+# Uncomment and configure for private registries or mirrors.
+# [pypi-config]
+# index-url           = "https://pypi.org/simple"
+# extra-index-urls    = ["https://your-private.example.com/simple"]
+# keyring-provider    = "disabled"    # or "subprocess" to use system keyring
+
+# ── Channel mirrors ───────────────────────────────────────────
+# Redirect conda-forge fetches to an internal mirror in air-gapped setups.
+# [mirrors]
+# "https://conda.anaconda.org/conda-forge" = [
+#     "https://your-conda-mirror.example.com/conda-forge",
+# ]

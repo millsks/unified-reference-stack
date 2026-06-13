@@ -1,0 +1,218 @@
+[workspace]
+name        = "unified-reference-stack"
+version     = "0.1.0"
+description = "Polyglot monorepo: Python, Node.js, Rust, and Shell Scripts"
+authors     = ["Kevin Mills <millsks@gmail.com>"]
+channels    = ["conda-forge"]
+platforms   = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+# ─────────────────────────────────────────────────────────────
+# Shared tooling — present in every environment
+# ─────────────────────────────────────────────────────────────
+[dependencies]
+git        = ">=2.40"
+gh         = ">=2.50"
+pre-commit = ">=3.6"
+shellcheck = ">=0.9"
+go-yq      = ">=4.40"
+
+# jq has no win-64 conda-forge build; restrict to the three POSIX platforms
+[target.linux-64.dependencies]
+jq = ">=1.7"
+
+[target.osx-64.dependencies]
+jq = ">=1.7"
+
+[target.osx-arm64.dependencies]
+jq = ">=1.7"
+
+# ─────────────────────────────────────────────────────────────
+# Workspace-level tasks — run in the default environment
+# ─────────────────────────────────────────────────────────────
+[tasks]
+# Onboarding
+bootstrap          = "bash scripts/bootstrap.sh"
+pre-commit-install = "pre-commit install"
+pre-commit-run     = "pre-commit run --all-files"
+
+# Cross-app linting (delegates to scripts/lint-all.sh)
+lint-shell = "shellcheck scripts/*.sh"
+lint-all   = { cmd = "bash scripts/lint-all.sh", depends-on = ["lint-shell"] }
+
+# Docker orchestration (requires Docker Desktop or docker CLI on PATH)
+docker-up    = "docker compose -f infra/docker-compose.yml up -d"
+docker-down  = "docker compose -f infra/docker-compose.yml down"
+docker-logs  = "docker compose -f infra/docker-compose.yml logs -f"
+docker-ps    = "docker compose -f infra/docker-compose.yml ps"
+docker-clean = "bash scripts/docker-clean.sh"
+build-all    = { cmd = "docker buildx bake -f docker-bake.hcl", cwd = "infra" }
+
+# Per-app Docker builds
+build-py   = { cmd = "docker build -t unified/py-service:dev .", cwd = "apps/py-service" }
+build-node = { cmd = "docker build -t unified/node-api:dev .",   cwd = "apps/node-api"   }
+build-rust = { cmd = "docker build -t unified/rust-cli:dev .",   cwd = "apps/rust-cli"   }
+
+# Per-app tests — delegates to each app's own pixi.toml
+test-py   = { cmd = "pixi run -e test test", cwd = "apps/py-service" }
+test-node = { cmd = "pixi run test",         cwd = "apps/node-api"   }
+test-rust = { cmd = "pixi run test",         cwd = "apps/rust-cli"   }
+test-all  = { depends-on = ["test-py", "test-node", "test-rust"] }
+
+# Full CI gate (lint then test)
+ci = { depends-on = ["lint-all", "test-all"] }
+
+# ─────────────────────────────────────────────────────────────
+# Features — compose into environments below
+# ─────────────────────────────────────────────────────────────
+
+# ── Python runtime ────────────────────────────────────────────
+[feature.py.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.py.pypi-dependencies]
+fastapi  = ">=0.111"
+uvicorn  = { version = ">=0.29", extras = ["standard"] }
+pydantic = ">=2.7"
+
+[feature.py.tasks]
+py-start = { cmd = "uvicorn py_service.main:app --host 0.0.0.0 --port 8000", cwd = "apps/py-service" }
+py-dev   = { cmd = "uvicorn py_service.main:app --reload --port 8000",       cwd = "apps/py-service" }
+
+# ── Python test tools ─────────────────────────────────────────
+[feature.py-test.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.py-test.pypi-dependencies]
+pytest         = ">=8.0"
+pytest-asyncio = ">=0.23"
+pytest-cov     = ">=5.0"
+httpx          = ">=0.27"
+
+[feature.py-test.tasks]
+py-test     = { cmd = "pytest tests/ -v",                          cwd = "apps/py-service" }
+py-coverage = { cmd = "pytest tests/ --cov=src --cov-report=html", cwd = "apps/py-service" }
+
+# ── Python lint / type-check tools ───────────────────────────
+[feature.py-lint.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.py-lint.pypi-dependencies]
+ruff = ">=0.4"
+mypy = ">=1.10"
+
+[feature.py-lint.tasks]
+py-lint      = { cmd = "ruff check src/ tests/",  cwd = "apps/py-service" }
+py-format    = { cmd = "ruff format src/ tests/", cwd = "apps/py-service" }
+py-typecheck = { cmd = "mypy src/",               cwd = "apps/py-service" }
+
+# ── Node.js ───────────────────────────────────────────────────
+[feature.node.dependencies]
+nodejs = ">=20,<23"
+
+[feature.node.tasks]
+node-install = { cmd = "npm ci",                   cwd = "apps/node-api" }
+node-start   = { cmd = "node src/index.js",        cwd = "apps/node-api", depends-on = ["node-install"] }
+node-dev     = { cmd = "npx nodemon src/index.js", cwd = "apps/node-api", depends-on = ["node-install"] }
+node-test    = { cmd = "npm test",                 cwd = "apps/node-api", depends-on = ["node-install"] }
+node-lint    = { cmd = "npx eslint src/",          cwd = "apps/node-api", depends-on = ["node-install"] }
+
+# ── Rust ──────────────────────────────────────────────────────
+[feature.rust.dependencies]
+rust = ">=1.78"
+# cargo-watch is not on conda-forge; install it separately with: cargo install cargo-watch
+
+[feature.rust.tasks]
+rust-build = { cmd = "cargo build --release",       cwd = "apps/rust-cli" }
+rust-run   = { cmd = "cargo run",                   cwd = "apps/rust-cli" }
+rust-test  = { cmd = "cargo test",                  cwd = "apps/rust-cli" }
+rust-lint  = { cmd = "cargo clippy -- -D warnings", cwd = "apps/rust-cli" }
+rust-fmt   = { cmd = "cargo fmt",                   cwd = "apps/rust-cli" }
+rust-clean = { cmd = "cargo clean",                 cwd = "apps/rust-cli" }
+
+# ── Hybrid app (Python backend + Node.js frontend) ────────────
+[feature.hybrid.dependencies]
+python = ">=3.12,<3.14"
+nodejs = ">=20,<23"
+
+[feature.hybrid.pypi-dependencies]
+fastapi = ">=0.111"
+uvicorn = { version = ">=0.29", extras = ["standard"] }
+
+[feature.hybrid.tasks]
+hybrid-backend          = { cmd = "uvicorn backend.main:app --reload --port 8000", cwd = "apps/hybrid-app/backend" }
+hybrid-frontend-install = { cmd = "npm ci",        cwd = "apps/hybrid-app/frontend" }
+hybrid-frontend-dev     = { cmd = "npm run dev",   cwd = "apps/hybrid-app/frontend", depends-on = ["hybrid-frontend-install"] }
+hybrid-frontend-build   = { cmd = "npm run build", cwd = "apps/hybrid-app/frontend", depends-on = ["hybrid-frontend-install"] }
+hybrid-up               = { cmd = "docker compose -f apps/hybrid-app/docker-compose.yml up -d" }
+hybrid-down             = { cmd = "docker compose -f apps/hybrid-app/docker-compose.yml down" }
+
+# ── Security — SBOM generation, secret scanning, vulnerability audits ──
+[feature.security.dependencies]
+syft  = ">=1.0"
+trivy = ">=0.50"
+# cyclonedx-cli (.NET validator) and gitleaks are not on conda-forge.
+# trivy covers both roles: --scanners secret for leak detection,
+# --scanners vuln for CVEs. syft and trivy produce spec-compliant CycloneDX natively.
+
+[feature.security.tasks]
+# Output directory (idempotent; runs before any sbom-* task)
+sbom-dirs = { cmd = "mkdir -p sbom" }
+
+# Per-environment SBOM — scans the resolved .pixi/envs/<env> directory.
+# Run `pixi install -e <env>` for any target environment before calling these.
+sbom-default = { cmd = "syft scan .pixi/envs/default -o cyclonedx-json=sbom/default.cdx.json", depends-on = ["sbom-dirs"] }
+sbom-py      = { cmd = "syft scan .pixi/envs/py      -o cyclonedx-json=sbom/py.cdx.json",      depends-on = ["sbom-dirs"] }
+sbom-node    = { cmd = "syft scan .pixi/envs/node    -o cyclonedx-json=sbom/node.cdx.json",    depends-on = ["sbom-dirs"] }
+sbom-rust    = { cmd = "syft scan .pixi/envs/rust    -o cyclonedx-json=sbom/rust.cdx.json",    depends-on = ["sbom-dirs"] }
+sbom-all     = { depends-on = ["sbom-default", "sbom-py", "sbom-node", "sbom-rust"] }
+
+# Secret scanning — exits non-zero if any secrets are detected
+scan-secrets = { cmd = "trivy fs . --scanners secret --format table" }
+
+# Vulnerability scan — table to stdout + CycloneDX report for archiving
+scan-vulns = { cmd = "trivy fs . --scanners vuln --format cyclonedx --output sbom/trivy-vuln.cdx.json", depends-on = ["sbom-dirs"] }
+
+# Full security gate: generate all SBOMs, scan secrets, scan vulns
+security-full = { depends-on = ["sbom-all", "scan-secrets", "scan-vulns"] }
+
+# ── CI — all linting/testing extras bundled for CI runners ───
+[feature.ci.dependencies]
+python = ">=3.12,<3.14"
+nodejs = ">=20,<23"
+rust   = ">=1.78"
+
+[feature.ci.pypi-dependencies]
+ruff           = ">=0.4"
+mypy           = ">=1.10"
+pytest         = ">=8.0"
+pytest-asyncio = ">=0.23"
+pytest-cov     = ">=5.0"
+httpx          = ">=0.27"
+fastapi        = ">=0.111"
+uvicorn        = { version = ">=0.29", extras = ["standard"] }
+pydantic       = ">=2.7"
+
+# ─────────────────────────────────────────────────────────────
+# Environments — named combinations of features
+#
+#   default  — shared tooling only (git, gh, pre-commit, shellcheck, jq, yq)
+#   py       — Python runtime + app deps
+#   py-dev   — py + test suite + linters (daily driver for Python work)
+#   node     — Node.js runtime + npm
+#   rust     — Rust toolchain + cargo-watch
+#   hybrid   — Python + Node (for apps/hybrid-app)
+#   ci       — standalone polyglot env; all deps declared in feature.ci directly
+#   security — syft, cyclonedx-cli, gitleaks, trivy (SBOM + secret/vuln scanning)
+#
+# solve-group isolates solver runs so Python/Node/Rust packages
+# are resolved independently and don't constrain each other.
+# ─────────────────────────────────────────────────────────────
+[environments]
+default  = { features = [],                                          solve-group = "default"  }
+py       = { features = ["py"],                                      solve-group = "py"       }
+py-dev   = { features = ["py", "py-test", "py-lint"],                solve-group = "py"       }
+node     = { features = ["node"],                                    solve-group = "node"     }
+rust     = { features = ["rust"],                                    solve-group = "rust"     }
+hybrid   = { features = ["hybrid"],                                  solve-group = "hybrid"   }
+ci       = { features = ["ci"],                                      solve-group = "ci"       }
+security = { features = ["security"],                                solve-group = "security" }
