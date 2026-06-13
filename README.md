@@ -22,9 +22,10 @@ Scripts -- powered by Pixi for dependency management and Docker for containerize
 13. [Docker & Containerized Stacks](#docker--containerized-stacks)
 14. [Docker Compose Orchestration](#docker-compose-orchestration)
 15. [Pixi Tasks & Environments](#pixi-tasks--environments)
-16. [CI/CD Integration](#cicd-integration)
-17. [Best Practices](#best-practices)
-18. [Cheat Sheet](#cheat-sheet)
+16. [Security & SBOM](#security--sbom)
+17. [CI/CD Integration](#cicd-integration)
+18. [Best Practices](#best-practices)
+19. [Cheat Sheet](#cheat-sheet)
 
 ---
 
@@ -214,39 +215,105 @@ pixi init .
 
 ### Root `pixi.toml`
 
+The workspace manifest defines shared tooling, per-language features, and named environments.
+Key design decisions:
+
+- `gh` (GitHub CLI) is available in every environment alongside `git`.
+- `go-yq` is the Go-based yq (v4); the Python-based `yq` on conda-forge is a different package at v3.
+- `jq` has no win-64 conda-forge build, so it is declared per-platform using `[target.<platform>.dependencies]`.
+- Each language group uses its own `solve-group` so package resolution does not create cross-language conflicts.
+- `npm` is bundled inside `nodejs` on conda-forge -- do not add it as a separate dependency.
+- `cargo-watch` is not on conda-forge; install it manually with `cargo install cargo-watch` after activating the `rust` environment.
+
 ```toml
 [workspace]
-name = "unified-reference-stack"
-version = "0.1.0"
-description = "Polyglot monorepo with Python, Node.js, Rust, and containerized stacks"
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+name        = "unified-reference-stack"
+version     = "0.1.0"
+description = "Polyglot monorepo: Python, Node.js, Rust, and Shell Scripts"
+authors     = ["Kevin Mills <millsks@gmail.com>"]
+channels    = ["conda-forge"]
+platforms   = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
+# ── Shared tooling — present in every environment ────────────
 [dependencies]
-# Shared dev tooling available in all environments
-git = ">=2.40"
+git        = ">=2.40"
+gh         = ">=2.50"
 pre-commit = ">=3.6"
 shellcheck = ">=0.9"
-docker-compose = ">=2.24"   # docker compose CLI via conda-forge
+go-yq      = ">=4.40"
+
+# jq has no win-64 conda-forge build; restrict to POSIX platforms
+[target.linux-64.dependencies]
 jq = ">=1.7"
-yq = ">=4.40"
 
+[target.osx-64.dependencies]
+jq = ">=1.7"
+
+[target.osx-arm64.dependencies]
+jq = ">=1.7"
+
+# ── Workspace-level tasks ────────────────────────────────────
 [tasks]
-# Workspace-level tasks
-bootstrap   = "bash scripts/bootstrap.sh"
-lint-all    = "bash scripts/lint-all.sh"
-pre-commit  = "pre-commit run --all-files"
-
-# Docker convenience tasks
-docker-up   = "docker compose -f infra/docker-compose.yml up -d"
-docker-down = "docker compose -f infra/docker-compose.yml down"
-docker-logs = "docker compose -f infra/docker-compose.yml logs -f"
-docker-ps   = "docker compose -f infra/docker-compose.yml ps"
+bootstrap          = "bash scripts/bootstrap.sh"
+pre-commit-install = "pre-commit install"
+pre-commit-run     = "pre-commit run --all-files"
+lint-shell = "shellcheck scripts/*.sh"
+lint-all   = { cmd = "bash scripts/lint-all.sh", depends-on = ["lint-shell"] }
+docker-up    = "docker compose -f infra/docker-compose.yml up -d"
+docker-down  = "docker compose -f infra/docker-compose.yml down"
+docker-logs  = "docker compose -f infra/docker-compose.yml logs -f"
+docker-ps    = "docker compose -f infra/docker-compose.yml ps"
 docker-clean = "bash scripts/docker-clean.sh"
+build-all    = { cmd = "docker buildx bake -f docker-bake.hcl", cwd = "infra" }
+build-py   = { cmd = "docker build -t unified/py-service:dev .", cwd = "apps/py-service" }
+build-node = { cmd = "docker build -t unified/node-api:dev .",   cwd = "apps/node-api"   }
+build-rust = { cmd = "docker build -t unified/rust-cli:dev .",   cwd = "apps/rust-cli"   }
+test-py   = { cmd = "pixi run -e test test", cwd = "apps/py-service" }
+test-node = { cmd = "pixi run test",         cwd = "apps/node-api"   }
+test-rust = { cmd = "pixi run test",         cwd = "apps/rust-cli"   }
+test-all  = { depends-on = ["test-py", "test-node", "test-rust"] }
+ci = { depends-on = ["lint-all", "test-all"] }
 
-# Build all images
-build-all   = { cmd = "docker buildx bake", cwd = "infra" }
+# ── Features (abbreviated — see pixi.toml for full content) ──
+[feature.py.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.node.dependencies]
+nodejs = ">=20,<23"
+
+[feature.rust.dependencies]
+rust = ">=1.78"
+
+# ── Environments ─────────────────────────────────────────────
+[environments]
+default  = { features = [],                         solve-group = "default"  }
+py       = { features = ["py"],                     solve-group = "py"       }
+py-dev   = { features = ["py", "py-test", "py-lint"], solve-group = "py"    }
+node     = { features = ["node"],                   solve-group = "node"     }
+rust     = { features = ["rust"],                   solve-group = "rust"     }
+hybrid   = { features = ["hybrid"],                 solve-group = "hybrid"   }
+ci       = { features = ["ci"],                     solve-group = "ci"       }
+security = { features = ["security"],               solve-group = "security" }
 ```
+
+### Root `.pixi/config.toml`
+
+Project-level Pixi configuration that overrides the global `~/.config/pixi/config.toml` for this
+workspace only. Top-level scalar keys must appear **before** any `[section]` headers in TOML.
+
+```toml
+pinning-strategy = "semver"
+tls-no-verify    = false
+
+[shell]
+change-ps1 = true
+```
+
+| Key                 | Purpose                                                           |
+|---------------------|-------------------------------------------------------------------|
+| `pinning-strategy`  | Constraint added by `pixi add` (`semver` = `>=x.y,<x+1`)          |
+| `tls-no-verify`     | Set `true` only in air-gapped envs with self-signed certs         |
+| `change-ps1`        | Prepends `(pixi:<env>)` to the shell prompt inside `pixi shell`   |
 
 ### Root `.gitignore`
 
