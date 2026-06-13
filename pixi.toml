@@ -139,7 +139,7 @@ fastapi = ">=0.111"
 uvicorn = { version = ">=0.29", extras = ["standard"] }
 
 [feature.hybrid.tasks]
-hybrid-backend          = { cmd = "uvicorn backend.main:app --reload --port 8000", cwd = "apps/hybrid-app/backend" }
+hybrid-backend          = { cmd = "uvicorn backend.main:app --reload --port 8000", cwd = "apps/hybrid-app" }
 hybrid-frontend-install = { cmd = "npm ci",        cwd = "apps/hybrid-app/frontend" }
 hybrid-frontend-dev     = { cmd = "npm run dev",   cwd = "apps/hybrid-app/frontend", depends-on = ["hybrid-frontend-install"] }
 hybrid-frontend-build   = { cmd = "npm run build", cwd = "apps/hybrid-app/frontend", depends-on = ["hybrid-frontend-install"] }

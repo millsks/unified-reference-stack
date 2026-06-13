@@ -1,0 +1,22 @@
+# Pixi environments (rebuilt inside container)
+.pixi/
+
+# Version control
+.git/
+.github/
+
+# Docs and SBOM output
+docs/
+sbom/
+
+# Other apps (each Dockerfile uses its own build context)
+apps/
+
+# Dev artifacts
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+**/target/
+**/.env
+**/*.pem
+**/*.key

@@ -1,3 +1,45 @@
-# pixi environments
+# Pixi
 .pixi/*
 !.pixi/config.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.npm/
+dist/
+.next/
+
+# Rust
+target/
+
+# Docker
+.docker/
+*.tar
+
+# SBOM output
+sbom/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key

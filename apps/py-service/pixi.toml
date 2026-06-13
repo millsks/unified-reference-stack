@@ -1,0 +1,51 @@
+[workspace]
+name        = "py-service"
+version     = "0.1.0"
+description = "FastAPI service — unified-reference-stack"
+channels    = ["conda-forge"]
+platforms   = ["linux-64", "osx-arm64", "osx-64"]
+
+[dependencies]
+python = ">=3.12,<3.14"
+
+[pypi-dependencies]
+fastapi  = ">=0.111"
+uvicorn  = { version = ">=0.29", extras = ["standard"] }
+pydantic = ">=2.7"
+
+[tasks]
+start         = "uvicorn py_service.main:app --host 0.0.0.0 --port 8000"
+dev           = "uvicorn py_service.main:app --reload --port 8000"
+build         = "docker build -t unified/py-service:dev ."
+run-container = "docker run --rm -p 8000:8000 unified/py-service:dev"
+
+[feature.test.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.test.pypi-dependencies]
+pytest         = ">=8.0"
+pytest-asyncio = ">=0.23"
+pytest-cov     = ">=5.0"
+httpx          = ">=0.27"
+
+[feature.test.tasks]
+test     = "pytest tests/ -v"
+coverage = "pytest tests/ --cov=src --cov-report=html"
+
+[feature.lint.dependencies]
+python = ">=3.12,<3.14"
+
+[feature.lint.pypi-dependencies]
+ruff = ">=0.4"
+mypy = ">=1.10"
+
+[feature.lint.tasks]
+lint      = "ruff check src/ tests/"
+format    = "ruff format src/ tests/"
+typecheck = "mypy src/"
+
+[environments]
+default = { features = [],             solve-group = "default" }
+test    = { features = ["test"],       solve-group = "default" }
+lint    = { features = ["lint"],       solve-group = "default" }
+dev     = { features = ["test", "lint"], solve-group = "default" }

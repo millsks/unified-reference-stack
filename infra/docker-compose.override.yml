@@ -1,0 +1,10 @@
+services:
+  py-service:
+    volumes:
+      - ../apps/py-service/src:/app/src
+    command: uvicorn py_service.main:app --host 0.0.0.0 --port 8000 --reload
+
+  node-api:
+    volumes:
+      - ../apps/node-api/src:/app/src
+    command: npx nodemon src/index.js

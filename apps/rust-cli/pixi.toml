@@ -1,0 +1,23 @@
+[workspace]
+name        = "rust-cli"
+version     = "0.1.0"
+description = "Rust CLI tool — unified-reference-stack"
+channels    = ["conda-forge"]
+platforms   = ["linux-64", "osx-arm64", "osx-64"]
+
+[dependencies]
+rust = ">=1.78"
+# cargo-watch is not on conda-forge; install separately: cargo install cargo-watch
+
+[tasks]
+build         = "cargo build --release"
+run           = "cargo run"
+test          = "cargo test"
+lint          = "cargo clippy -- -D warnings"
+format        = "cargo fmt"
+clean         = "cargo clean"
+docker-build  = "docker build -t unified/rust-cli:dev ."
+docker-run    = "docker run --rm unified/rust-cli:dev"
+
+[environments]
+default = { features = [], solve-group = "default" }
