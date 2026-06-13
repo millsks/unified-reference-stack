@@ -183,13 +183,32 @@ unified-reference-stack/
 |       +-- init.sql
 |
 +-- docs/
-|   +-- architecture.md
-|   +-- contributing.md
-|   +-- docker-guide.md
-|   +-- onboarding.md
-|   +-- style-guide.md
+|   +-- architecture/
+|   |   +-- overview.md
+|   |   +-- service-map.md
+|   |   +-- adr/
+|   |       +-- 001-pixi-polyglot-monorepo.md
+|   +-- development/
+|   |   +-- onboarding.md
+|   |   +-- contributing.md
+|   |   +-- style-guide.md
+|   +-- operations/
+|   |   +-- docker-guide.md
+|   |   +-- monitoring.md
+|   |   +-- runbooks/
+|   |       +-- deploy.md
+|   |       +-- rollback.md
+|   +-- security/
+|   |   +-- sbom-guide.md
+|   |   +-- secrets.md
+|   |   +-- scanning.md
+|   +-- kb/
+|       +-- pixi-cheatsheet.md
+|       +-- faq.md
+|       +-- troubleshooting.md
 |
 +-- .github/
+|   +-- CONTRIBUTING.md          # GitHub-discoverable entry point
 |   +-- workflows/
 |       +-- ci.yml
 |       +-- docker-publish.yml
@@ -379,25 +398,39 @@ apps/
 
 ## Documentation Structure
 
-Documentation lives at two levels:
+Docs are organized by concern under `docs/`, with a GitHub-discoverable entry point at
+`.github/CONTRIBUTING.md`. App-level `README.md` files cover app-specific setup and runbooks.
 
-- **Top-level (`/docs`)** -- architecture, contributing guides, style guides, onboarding, Docker guide
-- **App-level (`/apps/<app>/README.md`)** -- app-specific setup, API references, runbooks, container notes
-
-### `/docs/docker-guide.md` Outline
-
-```markdown
-# Docker Guide
-
-## Prerequisites
-## Building Images Locally
-## Running the Full Stack
-## Environment Variables
-## Secrets Management
-## Multi-platform Builds
-## Pushing to GHCR
-## Troubleshooting
+```text
+docs/
+├── architecture/          # System design, ADRs, service topology
+│   ├── overview.md        # High-level architecture and layout
+│   ├── service-map.md     # Ports, Nginx routing, health endpoints
+│   └── adr/               # Architecture Decision Records
+│       └── 001-pixi-polyglot-monorepo.md
+├── development/           # Developer workflow
+│   ├── onboarding.md      # First-time setup and daily commands
+│   ├── contributing.md    # Commit conventions, PR process, adding apps
+│   └── style-guide.md     # Per-language formatting and lint rules
+├── operations/            # Running and maintaining the stack
+│   ├── docker-guide.md    # Building, running, pushing images
+│   ├── monitoring.md      # Health checks, logs, observability
+│   └── runbooks/          # Step-by-step operational procedures
+│       ├── deploy.md
+│       └── rollback.md
+├── security/              # Security tooling and practices
+│   ├── sbom-guide.md      # SBOM generation with syft
+│   ├── secrets.md         # Secrets management across environments
+│   └── scanning.md        # Trivy vuln and secret scanning
+└── kb/                    # Knowledge base
+    ├── pixi-cheatsheet.md # Quick-reference for all pixi commands
+    ├── faq.md             # Common questions and known gotchas
+    └── troubleshooting.md # Error patterns and their fixes
 ```
+
+> **Note:** `CONTRIBUTING.md` lives at `.github/CONTRIBUTING.md` so GitHub surfaces it
+> automatically on issues and pull requests. It links to `docs/development/contributing.md`
+> for the full guide.
 
 ---
 
