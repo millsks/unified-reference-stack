@@ -159,18 +159,19 @@ trivy = ">=0.50"
 sbom-dirs = { cmd = "mkdir -p sbom" }
 
 # Per-environment SBOM — scans the resolved .pixi/envs/<env> directory.
+# syft writes to file first; jq then formats it in-place via a temp file.
 # Run `pixi install -e <env>` for any target environment before calling these.
-sbom-default = { cmd = "syft scan .pixi/envs/default -o cyclonedx-json=sbom/default.cdx.json", depends-on = ["sbom-dirs"] }
-sbom-py      = { cmd = "syft scan .pixi/envs/py      -o cyclonedx-json=sbom/py.cdx.json",      depends-on = ["sbom-dirs"] }
-sbom-node    = { cmd = "syft scan .pixi/envs/node    -o cyclonedx-json=sbom/node.cdx.json",    depends-on = ["sbom-dirs"] }
-sbom-rust    = { cmd = "syft scan .pixi/envs/rust    -o cyclonedx-json=sbom/rust.cdx.json",    depends-on = ["sbom-dirs"] }
+sbom-default = { cmd = "syft scan .pixi/envs/default -o cyclonedx-json=sbom/default.cdx.json && jq . sbom/default.cdx.json > sbom/default.cdx.tmp && mv sbom/default.cdx.tmp sbom/default.cdx.json", depends-on = ["sbom-dirs"] }
+sbom-py      = { cmd = "syft scan .pixi/envs/py      -o cyclonedx-json=sbom/py.cdx.json      && jq . sbom/py.cdx.json      > sbom/py.cdx.tmp      && mv sbom/py.cdx.tmp      sbom/py.cdx.json",      depends-on = ["sbom-dirs"] }
+sbom-node    = { cmd = "syft scan .pixi/envs/node    -o cyclonedx-json=sbom/node.cdx.json    && jq . sbom/node.cdx.json    > sbom/node.cdx.tmp    && mv sbom/node.cdx.tmp    sbom/node.cdx.json",    depends-on = ["sbom-dirs"] }
+sbom-rust    = { cmd = "syft scan .pixi/envs/rust    -o cyclonedx-json=sbom/rust.cdx.json    && jq . sbom/rust.cdx.json    > sbom/rust.cdx.tmp    && mv sbom/rust.cdx.tmp    sbom/rust.cdx.json",    depends-on = ["sbom-dirs"] }
 sbom-all     = { depends-on = ["sbom-default", "sbom-py", "sbom-node", "sbom-rust"] }
 
 # Secret scanning — exits non-zero if any secrets are detected
 scan-secrets = { cmd = "trivy fs . --scanners secret --format table" }
 
-# Vulnerability scan — table to stdout + CycloneDX report for archiving
-scan-vulns = { cmd = "trivy fs . --scanners vuln --format cyclonedx --output sbom/trivy-vuln.cdx.json", depends-on = ["sbom-dirs"] }
+# Vulnerability scan — CycloneDX report pretty-printed via jq
+scan-vulns = { cmd = "trivy fs . --scanners vuln --format cyclonedx --output sbom/trivy-vuln.cdx.json && jq . sbom/trivy-vuln.cdx.json > sbom/trivy-vuln.cdx.tmp && mv sbom/trivy-vuln.cdx.tmp sbom/trivy-vuln.cdx.json", depends-on = ["sbom-dirs"] }
 
 # Full security gate: generate all SBOMs, scan secrets, scan vulns
 security-full = { depends-on = ["sbom-all", "scan-secrets", "scan-vulns"] }
