@@ -1227,6 +1227,74 @@ pixi run docker-down
 
 ---
 
+## Security & SBOM
+
+The `security` environment bundles [syft](https://github.com/anchore/syft) and
+[trivy](https://github.com/aquasecurity/trivy) for SBOM generation, secret scanning, and
+vulnerability auditing. All output files land in `sbom/` and are formatted with `jq`.
+
+> **Note:** `cyclonedx-cli` (.NET validator) and `gitleaks` are not on conda-forge.
+> `trivy` covers both roles: `--scanners secret` for leak detection, `--scanners vuln` for CVEs.
+> `syft` and `trivy` produce spec-compliant CycloneDX 1.6 JSON natively.
+
+### Activate the security environment
+
+```bash
+pixi install -e security
+pixi shell -e security
+```
+
+### SBOM generation
+
+`syft` scans a resolved `.pixi/envs/<env>` directory and writes a CycloneDX 1.6 JSON file.
+`jq` then formats it in-place via a temp-file swap (syft does not support pretty-printing to stdout
+with the `=<file>` argument syntax).
+
+```bash
+# Install the target environment first, then scan it
+pixi install -e rust
+pixi run -e security sbom-rust        # → sbom/rust.cdx.json (pretty-printed)
+
+pixi install -e py
+pixi run -e security sbom-py          # → sbom/py.cdx.json
+
+pixi run -e security sbom-all         # default + py + node + rust
+```
+
+### Secret scanning
+
+```bash
+pixi run -e security scan-secrets     # trivy --scanners secret; exits non-zero if secrets found
+```
+
+### Vulnerability scan
+
+```bash
+pixi run -e security scan-vulns       # → sbom/trivy-vuln.cdx.json (CycloneDX, pretty-printed)
+```
+
+### Full security gate
+
+```bash
+pixi run -e security security-full    # sbom-all + scan-secrets + scan-vulns
+```
+
+### Available security tasks
+
+| Task             | What it does                                                    |
+|------------------|-----------------------------------------------------------------|
+| `sbom-dirs`      | Creates the `sbom/` output directory (idempotent)               |
+| `sbom-default`   | SBOM of `.pixi/envs/default` -> `sbom/default.cdx.json`        |
+| `sbom-py`        | SBOM of `.pixi/envs/py` -> `sbom/py.cdx.json`                  |
+| `sbom-node`      | SBOM of `.pixi/envs/node` -> `sbom/node.cdx.json`              |
+| `sbom-rust`      | SBOM of `.pixi/envs/rust` -> `sbom/rust.cdx.json`              |
+| `sbom-all`       | Runs all four `sbom-*` tasks                                    |
+| `scan-secrets`   | `trivy fs . --scanners secret` (table output)                   |
+| `scan-vulns`     | `trivy fs . --scanners vuln` -> `sbom/trivy-vuln.cdx.json`     |
+| `security-full`  | Runs `sbom-all` + `scan-secrets` + `scan-vulns`                 |
+
+---
+
 ## CI/CD Integration
 
 ### `.github/workflows/ci.yml`
